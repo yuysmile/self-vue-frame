@@ -1,59 +1,75 @@
-var path = require('path')
-var webpack = require('webpack')
- 
-module.exports = {
-  entry: './src/main.js',
-  output: {
-    path: path.resolve(__dirname, './dist'),
-    publicPath: '/dist/',
-    filename: 'build.js'
+const resolve = require('path').resolve
+const webpack = require('webpack')
+const HtmlWebpackPlugin = require('html-webpack-plugin')
+const CopyWebpackPlugin = require('copy-webpack-plugin')
+const url = require('url')
+const publicPath = ''
+
+module.exports = (options = {}) => ({
+  entry: {
+    index: './src/main.js'
   },
-  resolveLoader: {
-    root: path.join(__dirname, 'node_modules'),
+  output: {
+    path: resolve(__dirname, 'dist'),
+    filename: options.dev ? '[name].js' : '[name].js?[chunkhash]',
+    chunkFilename: '[id].js?[chunkhash]',
+    publicPath: options.dev ? '/' : publicPath
   },
   module: {
-    loaders: [
-      {
-        test: /\\\\\\\\.vue$/,
-        loader: 'vue'
+    rules: [{
+        test: /\.vue$/,
+        use: ['vue-loader']
       },
       {
-        test: /\\\\\\\\.js$/,
-        loader: 'babel',
+        test: /\.js$/,
+        use: ['babel-loader'],
         exclude: /node_modules/
       },
       {
-        test: /\\\\\\\\.(png|jpg|gif|svg)$/,
-        loader: 'file',
-        query: {
-          name: '[name].[ext]?[hash]'
-        }
+        test: /\.css$/,
+        use: ['style-loader', 'css-loader', 'postcss-loader']
+      },
+      {
+        test: /\.(png|jpg|jpeg|gif|eot|ttf|woff|woff2|svg|svgz)(\?.+)?$/,
+        use: [{
+          loader: 'url-loader',
+          options: {
+            limit: 10000
+          }
+        }]
       }
     ]
   },
+  plugins: [
+    new webpack.optimize.CommonsChunkPlugin({
+      names: ['manifest']
+    }),
+    new HtmlWebpackPlugin({
+      template: 'src/index.html'
+    })
+  ].concat(prod()),
   resolve: {
-    alias: {vue: 'vue/dist/vue.js'}
+    alias: {
+      '~': resolve(__dirname, 'src')
+    }
   },
   devServer: {
-    historyApiFallback: true,
-    noInfo: true
+    open:true
   },
-  devtool: '#eval-source-map'
-}
- 
-if (process.env.NODE_ENV === 'production') {
-  module.exports.devtool = '#source-map'
-  // http://vue-loader.vuejs.org/en/workflow/production.html
-  module.exports.plugins = (module.exports.plugins || []).concat([
-    new webpack.DefinePlugin({
-      'process.env': {
-        NODE_ENV: '"production"'
-      }
-    }),
-    new webpack.optimize.UglifyJsPlugin({
-      compress: {
-        warnings: false
-      }
-    })
-  ])
+  devtool: options.dev ? '#eval-source-map' : '#source-map'
+});
+function prod(){
+  if (process.env.NODE_ENV === 'production') {
+    return [
+      new CopyWebpackPlugin([
+        { from: __dirname + '/src/config/config_prod.json', to: './config.json' }
+      ])
+    ]
+  } else {
+    return [
+      new CopyWebpackPlugin([
+        { from: __dirname + '/src/config/config_dev.json', to: './config.json' }
+      ])
+    ]
+  }
 }
